@@ -30,14 +30,18 @@ const rule: Rule.RuleModule = {
         const variable = scope.set.get(argument.name);
 
         if (!variable || variable.references.length !== 2) return;
-
-        if (scope.block.type === "FunctionDeclaration") {
+        if (
+          scope.block.type === "FunctionExpression" ||
+          scope.block.type === "ArrowFunctionExpression"
+        ) {
           const declaration = variable.defs[0]?.parent;
           if (declaration && declaration.type === "VariableDeclaration") {
             const functionBlock = scope.block.body;
-            const returnIndex = functionBlock.body.indexOf(node);
-            const definitionIndex = functionBlock.body.indexOf(declaration);
-            if (returnIndex - definitionIndex > 1) return;
+            if (functionBlock.type === "BlockStatement") {
+              const returnIndex = functionBlock.body.indexOf(node);
+              const definitionIndex = functionBlock.body.indexOf(declaration);
+              if (returnIndex - definitionIndex > 1) return;
+            }
           }
         }
 
@@ -51,13 +55,13 @@ const rule: Rule.RuleModule = {
         const id = def.id;
         const init = def.init;
 
-        if (id.type !== "Identifier") {
-          // destructring an `await` expression should not be counted for this rule,
-          // since doing something like
-          // ```const { result } = await doSomething();```
-          // is actually a useful pattern
-          if (init.type === "AwaitExpression") return;
+        // destructring an `await` expression should not be counted for this rule,
+        // since doing something like
+        // ```const { result } = await doSomething();```
+        // is actually a useful pattern
+        if (init.type === "AwaitExpression") return;
 
+        if (id.type !== "Identifier") {
           // if there are other destructured elements, it makes sense to destructure
           // this returned variable as well instead of referring to it using property/index access
           if (id.type === "ObjectPattern" && id.properties.length > 1) return;
